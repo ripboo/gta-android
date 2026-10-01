@@ -7,7 +7,6 @@ jobs:
   extract:
     runs-on: ubuntu-latest
 
-    # منح صلاحيات الكتابة للمستودع لكي يتمكن السكريبت من حفظ الملف ورفع التغييرات
     permissions:
       contents: write
 
@@ -35,7 +34,6 @@ jobs:
         try:
             with idb.from_file(file_path) as db:
                 found = False
-                # سيتم حفظ الملف في المجلد الرئيسي (Root Directory) للمشروع باسم scanworld_result.txt
                 with open("scanworld_result.txt", "w", encoding="utf-8") as out:
                     out.write(f"--- Extraction results for {target_name} ---\n")
                     for ea, name in db.names.items():
@@ -43,18 +41,26 @@ jobs:
                             out.write(f"Found Function: {name} at Address: {hex(ea)}\n")
                             found = True
                     if not found:
-                        out.write(f"Function {target_name} not found.\n")
-            print("Extraction successful.")
+                        out.write(f"Function {target_name} not found in database names.\n")
+            print("Extraction script executed successfully.")
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"Error occurred: {e}")
+            # إنشاء ملف فارغ أو ملف يحمل الخطأ حتى لا يفشل الـ Git تماماً إذا أردت
+            with open("scanworld_result.txt", "w", encoding="utf-8") as out:
+                out.write(f"Extraction failed with error: {e}\n")
         '
 
     - name: Commit and Push to Main Repository
       run: |
-        git config --global user.name "github-actions[bot]"
-        git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        git add scanworld_result.txt
-        git status
-        # التحقق مما إذا كان هناك تغييرات جديدة لحفظها
-        git diff --staged --quiet || git commit -m "Auto-extract Renderer::ScanWorld result"
-        git push
+        # التأكد من أن الملف موجود بالفعل قبل تنفيد أوامر git
+        if [ -f "scanworld_result.txt" ]; then
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add scanworld_result.txt
+          git status
+          git diff --staged --quiet || git commit -m "Auto-extract Renderer::ScanWorld result"
+          git push
+        else
+          echo "Error: scanworld_result.txt was not created."
+          exit 1
+        fi
