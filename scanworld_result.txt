@@ -1,4 +1,1 @@
-=== FIRST 600 LINES FROM IDA DATABASE ===
-
-==> idb/arm64-v8a/libGTASA.so.i64 <==
-
+Error opening as SQLite database: file is not a database
