@@ -1,1 +1,2 @@
-Error opening as SQLite database: file is not a database
+--- Search Results for ScanWorld ---
+Error: unexpected file signature: <memory at 0x7effe44feb00>
