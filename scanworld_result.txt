@@ -1,1 +1,2 @@
-Extraction failed with error: unexpected file signature: <memory at 0x7f810eafeb00>
+--- Results for Renderer::ScanWorld using nlitsme tool ---
+Function Renderer::ScanWorld not found or tool path needs adjustment.
