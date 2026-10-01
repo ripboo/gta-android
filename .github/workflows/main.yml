@@ -1,0 +1,60 @@
+name: Extract and Commit Renderer::ScanWorld
+
+on:
+  workflow_dispatch:
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+
+    # منح صلاحيات الكتابة للمستودع لكي يتمكن السكريبت من حفظ الملف ورفع التغييرات
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install python-idb
+
+    - name: Run Extraction Script
+      run: |
+        python -c '
+        import idb
+        file_path = "idb/arm64-v8a/libGTASA.so.i64"
+        target_name = "Renderer::ScanWorld"
+        
+        try:
+            with idb.from_file(file_path) as db:
+                found = False
+                # سيتم حفظ الملف في المجلد الرئيسي (Root Directory) للمشروع باسم scanworld_result.txt
+                with open("scanworld_result.txt", "w", encoding="utf-8") as out:
+                    out.write(f"--- Extraction results for {target_name} ---\n")
+                    for ea, name in db.names.items():
+                        if target_name in name:
+                            out.write(f"Found Function: {name} at Address: {hex(ea)}\n")
+                            found = True
+                    if not found:
+                        out.write(f"Function {target_name} not found.\n")
+            print("Extraction successful.")
+        except Exception as e:
+            print(f"Error: {e}")
+        '
+
+    - name: Commit and Push to Main Repository
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git add scanworld_result.txt
+        git status
+        # التحقق مما إذا كان هناك تغييرات جديدة لحفظها
+        git diff --staged --quiet || git commit -m "Auto-extract Renderer::ScanWorld result"
+        git push
