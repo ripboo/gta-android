@@ -18,25 +18,24 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Run SQLite Inspection and Search
+    - name: Create Python Extraction Script
       run: |
-        python3 -c '
+        cat << 'EOF' > parse_i64.py
         import sqlite3
         import os
-        
+
         db_file = "idb/arm64-v8a/libGTASA.so.i64"
         output_file = "scanworld_result.txt"
-        
+
         print(f"Opening database: {db_file}")
-        
+
         with open(output_file, "w", encoding="utf-8") as f:
             try:
-                # محاولة فتح الملف كقاعدة بيانات SQLite
                 conn = sqlite3.connect(db_file)
                 cursor = conn.cursor()
                 
-                # 1. استعراض كافة الجداول المتاحة في قاعدة البيانات
-                cursor.execute("SELECT name FROM sqlite_master WHERE type=\'table\';")
+                # استعراض كافة الجداول
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
                 tables = cursor.fetchall()
                 
                 f.write("=== TABLES FOUND IN .i64 DATABASE ===\n")
@@ -44,7 +43,7 @@ jobs:
                     f.write(f"- {table[0]}\n")
                 f.write("\n")
                 
-                # 2. البحث عن كلمة ScanWorld أو Renderer داخل محتوى الجداول
+                # البحث عن كلمة ScanWorld أو Renderer داخل البيانات
                 f.write("=== SEARCH RESULTS FOR ScanWorld / Renderer ===\n")
                 found = False
                 
@@ -58,8 +57,7 @@ jobs:
                             if "ScanWorld" in row_str or "Renderer" in row_str:
                                 f.write(f"[Table: {t_name}] -> {row_str[:300]}...\n")
                                 found = True
-                    except Exception as table_err:
-                        # بعض الجداول قد تتطلب استعلامات خاصة أو تحتوي على بيانات ثنائية صعبة
+                    except Exception:
                         continue
                         
                 if not found:
@@ -70,7 +68,10 @@ jobs:
                 
             except Exception as e:
                 f.write(f"Error opening as SQLite database: {e}\n")
-        '
+        EOF
+
+    - name: Run Extraction Script
+      run: python3 parse_i64.py
 
     - name: Commit and Push Result
       run: |
