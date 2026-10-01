@@ -1,4 +1,4 @@
-name: Inspect SQLite i64 and Search ScanWorld
+name: Extract ScanWorld with python-idb
 
 on:
   workflow_dispatch:
@@ -18,60 +18,51 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Create Python Extraction Script
+    - name: Install python-idb and Capstone
       run: |
-        cat << 'EOF' > parse_i64.py
-        import sqlite3
-        import os
-
-        db_file = "idb/arm64-v8a/libGTASA.so.i64"
-        output_file = "scanworld_result.txt"
-
-        print(f"Opening database: {db_file}")
-
-        with open(output_file, "w", encoding="utf-8") as f:
-            try:
-                conn = sqlite3.connect(db_file)
-                cursor = conn.cursor()
-                
-                # استعراض كافة الجداول
-                cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-                tables = cursor.fetchall()
-                
-                f.write("=== TABLES FOUND IN .i64 DATABASE ===\n")
-                for table in tables:
-                    f.write(f"- {table[0]}\n")
-                f.write("\n")
-                
-                # البحث عن كلمة ScanWorld أو Renderer داخل البيانات
-                f.write("=== SEARCH RESULTS FOR ScanWorld / Renderer ===\n")
-                found = False
-                
-                for table in tables:
-                    t_name = table[0]
-                    try:
-                        cursor.execute(f"SELECT * FROM [{t_name}]")
-                        rows = cursor.fetchall()
-                        for row in rows:
-                            row_str = str(row)
-                            if "ScanWorld" in row_str or "Renderer" in row_str:
-                                f.write(f"[Table: {t_name}] -> {row_str[:300]}...\n")
-                                found = True
-                    except Exception:
-                        continue
-                        
-                if not found:
-                    f.write("No plain text match for ScanWorld or Renderer found in table rows.\n")
-                    
-                conn.close()
-                print("Inspection completed successfully.")
-                
-            except Exception as e:
-                f.write(f"Error opening as SQLite database: {e}\n")
-        EOF
+        python -m pip install --upgrade pip
+        pip install python-idb capstone
 
     - name: Run Extraction Script
-      run: python3 parse_i64.py
+      run: |
+        python3 -c '
+        import idb
+
+        file_path = "idb/arm64-v8a/libGTASA.so.i64"
+        output_file = "scanworld_result.txt"
+        target_name = "ScanWorld"
+
+        print(f"Opening database with python-idb: {file_path}")
+
+        with open(output_file, "w", encoding="utf-8") as out:
+            out.write(f"--- Search Results for {target_name} ---\n")
+            try:
+                with idb.from_file(file_path) as db:
+                    api = idb.IDAPython(db)
+                    found = False
+                    
+                    # المرور على كافة الدوال عبر محاكاة idautils
+                    for ea in api.idautils.Functions():
+                        try:
+                            # محاولة جلب اسم الدالة بطريقتين لدعم اختلاف إصدارات الـ API
+                            name = api.idc.GetFunctionName(ea)
+                        except Exception:
+                            try:
+                                name = api.idc.get_func_name(ea)
+                            except Exception:
+                                name = ""
+                        
+                        if target_name in name or "Renderer" in name:
+                            out.write(f"Address: {hex(ea)} - Name: {name}\n")
+                            found = True
+                            
+                    if not found:
+                        out.write(f"Function containing {target_name} not found in functions list.\n")
+                print("Extraction completed successfully.")
+            except Exception as e:
+                out.write(f"Error: {e}\n")
+                print(f"Extraction failed: {e}")
+        '
 
     - name: Commit and Push Result
       run: |
@@ -79,6 +70,6 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add scanworld_result.txt
-          git diff --staged --quiet || git commit -m "Inspect i64 database via SQLite and search ScanWorld"
+          git diff --staged --quiet || git commit -m "Extract ScanWorld using python-idb library"
           git push
         fi
