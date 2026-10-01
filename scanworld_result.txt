@@ -1,2 +1,4 @@
---- Results for Renderer::ScanWorld using nlitsme tool ---
-Function Renderer::ScanWorld not found or tool path needs adjustment.
+=== FIRST 600 LINES FROM IDA DATABASE ===
+
+==> idb/arm64-v8a/libGTASA.so.i64 <==
+
